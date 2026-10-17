@@ -12,8 +12,22 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: financehub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      DATABASE_URL: file:./ci.db
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/financehub
+      DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@localhost:5432/financehub
       AUTH_SECRET: ci-only-secret
       MARKET_DATA_PROVIDER: mock
       NEXT_TELEMETRY_DISABLED: 1
@@ -25,6 +39,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+      - name: Check schema has no unmigrated changes
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
