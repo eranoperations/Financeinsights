@@ -17,8 +17,9 @@
 
 ```bash
 npm install
+docker compose up -d      # Postgres מקומי (או כל Postgres אחר, לעדכן ב-.env)
 cp .env.example .env      # ולעדכן AUTH_SECRET
-npx prisma db push        # יצירת מסד SQLite
+npm run db:migrate        # יצירת הטבלאות
 npm run dev               # http://localhost:3000
 ```
 
@@ -47,5 +48,13 @@ Yahoo הוא מקור לא רשמי — לסביבת ייצור מסחרית מ�
 - תשואת המדדים היא תשואת מחיר (ללא דיבידנדים), מומרת למטבע הבסיס.
 - מניות בת״א מתומחרות באגורות (ILA) ומומרות אוטומטית; המרות מט״ח לפי שער יומי.
 
-## פריסה לייצור
-החליפו ב-`prisma/schema.prisma` את `provider` ל-`postgresql`, הגדירו `DATABASE_URL` ו-`AUTH_SECRET`, והריצו `npx prisma db push`.
+## פריסה ב-Vercel
+
+1. היכנסו ל-[vercel.com](https://vercel.com) עם חשבון GitHub, ובחרו **Add New → Project** ואת המאגר `Financeinsights`. Vercel מזהה Next.js לבד.
+2. תחת **Environment Variables** הוסיפו `AUTH_SECRET` (מחרוזת אקראית ארוכה, למשל הפלט של `openssl rand -base64 32`) ו-`MARKET_DATA_PROVIDER=yahoo`, ולחצו **Deploy**. הפריסה הראשונה תיכשל כי עדיין אין מסד נתונים, וזה צפוי.
+3. בפרויקט, בלשונית **Storage**, בחרו **Create Database → Neon (Postgres)** וחברו אותו לפרויקט. Vercel מגדיר לבד את `DATABASE_URL` ואת `DATABASE_URL_UNPOOLED`.
+4. בלשונית **Deployments** לחצו **Redeploy**. בכל פריסה הסקריפט `vercel-build` מריץ `prisma migrate deploy` ויוצר או מעדכן את הטבלאות.
+
+מכאן כל דחיפה ל-`main` מתפרסמת אוטומטית, וכל PR מקבל קישור תצוגה מקדימה משלו.
+
+המסד הוא Postgres רגיל, כך שאפשר לעבור בהמשך לספק אחר (למשל Cloud SQL ב-Google Cloud): מעתיקים את הנתונים עם `pg_dump`/`pg_restore` ומעדכנים את `DATABASE_URL` ו-`DATABASE_URL_UNPOOLED`.
