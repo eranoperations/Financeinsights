@@ -127,14 +127,18 @@ export const yahooProvider: MarketDataProvider = {
   async history(symbol, range: HistoryRange | { from: string }) {
     const period1 = typeof range === "string" ? rangeStart(range) : range.from;
     const interval = range === "max" || range === "5y" ? "1wk" : "1d";
-    const res: any = await yahooFinance.chart(symbol, { period1, interval, events: "div" }, NO_VALIDATE);
+    const res: any = await yahooFinance.chart(symbol, { period1, interval, events: "div|split" }, NO_VALIDATE);
     const prices = (res.quotes ?? [])
       .filter((q: any) => typeof q.close === "number")
       .map((q: any) => ({ date: toDate(q.date)!, close: q.close }));
     const dividends = (res.events?.dividends ?? [])
       .map((d: any) => ({ date: toDate(d.date)!, amount: d.amount }))
       .sort((a: any, b: any) => a.date.localeCompare(b.date));
-    return { prices, dividends } satisfies History;
+    const splits = (res.events?.splits ?? [])
+      .map((s: any) => ({ date: toDate(s.date)!, ratio: s.numerator / s.denominator }))
+      .filter((s: any) => s.date && Number.isFinite(s.ratio) && s.ratio > 0)
+      .sort((a: any, b: any) => a.date.localeCompare(b.date));
+    return { prices, dividends, splits } satisfies History;
   },
 
   async stockDetails(symbol): Promise<StockDetails> {

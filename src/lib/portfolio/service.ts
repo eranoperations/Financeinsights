@@ -77,7 +77,7 @@ export async function loadPortfolio(userId: string, base: BaseCurrency): Promise
   const assets = new Map<string, AssetSeries>();
   for (const [s, h] of histories) {
     const currency = quoteBySymbol.get(s)?.currency ?? (s.endsWith(".TA") ? "ILA" : "USD");
-    assets.set(s, { currency, prices: h.prices, dividends: h.dividends });
+    assets.set(s, { currency, prices: h.prices, dividends: h.dividends, splits: h.splits });
   }
 
   // FX series: units of base currency per 1 unit of foreign currency.

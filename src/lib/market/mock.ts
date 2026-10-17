@@ -88,7 +88,7 @@ function fullHistory(entry: CatalogEntry): History {
     }
   }
 
-  const history = { prices, dividends };
+  const history: History = { prices, dividends, splits: [] };
   seriesCache.set(entry.symbol, history);
   return history;
 }
@@ -183,6 +183,7 @@ export const mockProvider: MarketDataProvider = {
     return {
       prices: full.prices.filter((p) => p.date >= from),
       dividends: full.dividends.filter((d) => d.date >= from),
+      splits: [],
     };
   },
 

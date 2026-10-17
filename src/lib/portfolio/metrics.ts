@@ -1,5 +1,5 @@
 import { daysBetween } from "@/lib/dates";
-import type { DividendEvent, PricePoint } from "@/lib/market/types";
+import type { DividendEvent, PricePoint, SplitEvent } from "@/lib/market/types";
 
 export interface Txn {
   symbol: string;
@@ -10,10 +10,12 @@ export interface Txn {
   fee: number; // asset currency
 }
 
+/** Prices and dividends are split-adjusted (today's share terms), as Yahoo returns them. */
 export interface AssetSeries {
   currency: string;
   prices: PricePoint[];
   dividends: DividendEvent[];
+  splits?: SplitEvent[];
 }
 
 /** Converts `amount` of `currency` on `date` into the portfolio's base currency. */
@@ -62,6 +64,18 @@ function forwardFiller(series: PricePoint[]) {
     while (i + 1 < series.length && series[i + 1].date <= date) i++;
     return i >= 0 ? series[i].close : series[0]?.close;
   };
+}
+
+/**
+ * Restates a trade in today's share terms. Transactions are recorded as traded (pre-split
+ * quantity and price) while the price history is split-adjusted, so every split with an
+ * ex-date after the trade multiplies the quantity and divides the price. Value is unchanged.
+ */
+export function splitAdjust(tx: Txn, splits: SplitEvent[] | undefined): Txn {
+  let factor = 1;
+  for (const s of splits ?? []) if (s.date > tx.date) factor *= s.ratio;
+  if (factor === 1) return tx;
+  return { ...tx, quantity: tx.quantity * factor, price: tx.price / factor };
 }
 
 /** Under a year we report period (non-annualized) returns, so the IRR basis is the period itself. */
@@ -127,7 +141,9 @@ export function computePortfolio(
   toBase: ToBase,
   calendar: string[],
 ): PortfolioResult {
-  const sorted = [...txns].sort((a, b) => a.date.localeCompare(b.date));
+  const sorted = txns
+    .map((tx) => splitAdjust(tx, assets.get(tx.symbol)?.splits))
+    .sort((a, b) => a.date.localeCompare(b.date));
   const empty: PortfolioResult = {
     series: [],
     holdings: [],
