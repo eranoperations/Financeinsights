@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// SQLite for local development. For production switch provider to "postgresql"
+// and point DATABASE_URL at your database.
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String          @id @default(cuid())
+  email        String          @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime        @default(now())
+  watchlist    WatchlistItem[]
+  transactions Transaction[]
+}
+
+model WatchlistItem {
+  id      String   @id @default(cuid())
+  userId  String
+  symbol  String
+  addedAt DateTime @default(now())
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, symbol])
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  userId    String
+  symbol    String
+  // "BUY" | "SELL"
+  type      String
+  date      DateTime
+  quantity  Float
+  // Price per unit in the asset's trading currency
+  price     Float
+  fee       Float    @default(0)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
