@@ -13,6 +13,8 @@
 
 ## הרצה מקומית
 
+נדרש Node.js 22 ומעלה (ראו `.nvmrc`).
+
 ```bash
 npm install
 cp .env.example .env      # ולעדכן AUTH_SECRET
