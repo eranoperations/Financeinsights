@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeBenchmark, computePortfolio, xirr, type AssetSeries } from "./metrics";
+import { computeBenchmark, computePortfolio, splitAdjust, xirr, type AssetSeries } from "./metrics";
 
 const usd = (a: number) => a;
 
@@ -84,6 +84,68 @@ describe("computePortfolio", () => {
       ["2024-01-01"],
     );
     expect(res.totalValue).toBe(10);
+  });
+});
+
+describe("stock splits", () => {
+  const calendar = ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04"];
+  // Real price 400 -> 4:1 split on 01-03 -> 105. Yahoo's split-adjusted history: 100, 100, 105, 105.
+  const split = (): AssetSeries => ({
+    ...series([["2024-01-01", 100], ["2024-01-02", 100], ["2024-01-03", 105], ["2024-01-04", 105]]),
+    splits: [{ date: "2024-01-03", ratio: 4 }],
+  });
+
+  it("restates pre-split trades in post-split shares and leaves later trades alone", () => {
+    const before = { symbol: "X", type: "BUY" as const, date: "2024-01-01", quantity: 10, price: 400, fee: 1 };
+    expect(splitAdjust(before, split().splits)).toMatchObject({ quantity: 40, price: 100, fee: 1 });
+    const onExDate = { ...before, date: "2024-01-03", price: 105 };
+    expect(splitAdjust(onExDate, split().splits)).toBe(onExDate);
+  });
+
+  it("keeps quantity, cost and P&L right across a split", () => {
+    const res = computePortfolio(
+      [{ symbol: "X", type: "BUY", date: "2024-01-01", quantity: 10, price: 400, fee: 0 }],
+      new Map([["X", split()]]),
+      usd,
+      calendar,
+    );
+    expect(res.holdings[0]).toMatchObject({ quantity: 40, avgCost: 100, price: 105 });
+    expect(res.totalValue).toBeCloseTo(4200, 10);
+    expect(res.holdings[0].unrealizedPnl).toBeCloseTo(200, 10);
+    expect(res.twr).toBeCloseTo(0.05, 10);
+  });
+
+  it("matches post-split sells against restated holdings", () => {
+    const res = computePortfolio(
+      [
+        { symbol: "X", type: "BUY", date: "2024-01-01", quantity: 10, price: 400, fee: 0 },
+        { symbol: "X", type: "SELL", date: "2024-01-04", quantity: 20, price: 105, fee: 0 },
+      ],
+      new Map([["X", split()]]),
+      usd,
+      calendar,
+    );
+    expect(res.holdings[0].quantity).toBe(20);
+    expect(res.realizedPnl).toBeCloseTo(100, 10);
+    expect(res.totalValue).toBeCloseTo(2100, 10);
+  });
+
+  it("handles reverse splits and pays split-adjusted dividends on restated shares", () => {
+    // 1:10 reverse split: real price 10 -> 100. Adjusted history is 100 throughout.
+    const asset: AssetSeries = {
+      ...series([["2024-01-01", 100], ["2024-01-02", 100], ["2024-01-03", 100], ["2024-01-04", 100]]),
+      splits: [{ date: "2024-01-02", ratio: 0.1 }],
+      dividends: [{ date: "2024-01-04", amount: 2 }],
+    };
+    const res = computePortfolio(
+      [{ symbol: "X", type: "BUY", date: "2024-01-01", quantity: 100, price: 10, fee: 0 }],
+      new Map([["X", asset]]),
+      usd,
+      calendar,
+    );
+    expect(res.holdings[0]).toMatchObject({ quantity: 10, avgCost: 100 });
+    expect(res.dividendsReceived).toBeCloseTo(20, 10);
+    expect(res.twr).toBeCloseTo(0.02, 10);
   });
 });
 

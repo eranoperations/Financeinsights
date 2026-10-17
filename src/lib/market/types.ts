@@ -29,9 +29,17 @@ export interface DividendEvent {
   amount: number;
 }
 
+export interface SplitEvent {
+  date: string; // YYYY-MM-DD (ex-date)
+  /** New shares per old share, e.g. 4 for a 4:1 split, 0.1 for a 1:10 reverse split. */
+  ratio: number;
+}
+
+/** Prices and dividends are split-adjusted, i.e. expressed in today's share terms. */
 export interface History {
   prices: PricePoint[];
   dividends: DividendEvent[];
+  splits: SplitEvent[];
 }
 
 export type HistoryRange = "1mo" | "6mo" | "1y" | "5y" | "max";
