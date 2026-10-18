@@ -3,20 +3,33 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Plus, X } from "lucide-react";
+import clsx from "clsx";
 import { TransactionForm } from "./TransactionForm";
 
-export function AddToPortfolio({ symbol, currency, price, loggedIn }: { symbol: string; currency: string; price: number; loggedIn: boolean }) {
+export function AddToPortfolio({
+  symbol,
+  currency,
+  price,
+  loggedIn,
+  className,
+}: {
+  symbol: string;
+  currency: string;
+  price: number;
+  loggedIn: boolean;
+  className?: string;
+}) {
   const [open, setOpen] = useState(false);
   if (!loggedIn) {
     return (
-      <Link href={`/login?next=${encodeURIComponent(`/asset/${symbol}`)}`} className="btn-primary">
+      <Link href={`/login?next=${encodeURIComponent(`/asset/${symbol}`)}`} className={clsx("btn-primary", className)}>
         <Plus className="h-4 w-4" /> הוסף לתיק
       </Link>
     );
   }
   return (
     <>
-      <button className="btn-primary" onClick={() => setOpen(true)}>
+      <button className={clsx("btn-primary", className)} onClick={() => setOpen(true)}>
         <Plus className="h-4 w-4" /> הוסף לתיק
       </button>
       {open && (
