@@ -12,19 +12,13 @@ import { PriceChart } from "@/components/charts/PriceChart";
 import { FinancialsCharts } from "@/components/charts/FinancialsCharts";
 import { BarSeriesChart } from "@/components/charts/BarSeriesChart";
 import { SERIES } from "@/components/charts/palette";
+import { Carousel } from "@/components/Carousel";
+import { AssetView, type AssetTab } from "@/components/asset/AssetView";
+import { StatGrid, type StatItem } from "@/components/asset/StatGrid";
 
 export async function generateMetadata({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params;
   return { title: `${decodeURIComponent(symbol).toUpperCase()} — FinanceHub` };
-}
-
-function Stat({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="rounded-xl bg-surface-2 p-3">
-      <div className="text-xs text-muted">{label}</div>
-      <div className="num mt-1 text-start font-semibold">{value}</div>
-    </div>
-  );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -34,6 +28,20 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
     </section>
   );
+}
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="card h-full p-4">
+      <h3 className="mb-3 font-semibold">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+/** Builds stat tiles, dropping the ones with no data. */
+function stats(...items: [label: string, raw: unknown, value: string][]): StatItem[] {
+  return items.filter(([, raw]) => raw != null && raw !== "").map(([label, , value]) => ({ label, value }));
 }
 
 /** Horizontal weight bars (holdings, sectors) — easier to read than a pie. */
@@ -109,73 +117,126 @@ export default async function AssetPage({ params }: { params: Promise<{ symbol: 
 
   const cur = quote.currency;
   const demo = quotes.demo || history.demo;
+  const canAddToPortfolio = quote.type !== "INDEX";
 
-  return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-start gap-4">
+  const hero = (
+    <div className="flex flex-wrap items-start gap-3 md:gap-4">
+      <div className="md:hidden">
+        <AssetLogo symbol={symbol} size={44} />
+      </div>
+      <div className="hidden md:block">
         <AssetLogo symbol={symbol} size={64} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="num text-3xl font-extrabold">{symbol}</h1>
-            <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">{TYPE_LABELS[quote.type]}</span>
-            {quote.exchange && <span className="text-xs text-muted">{quote.exchange}</span>}
-          </div>
-          <div className="text-lg text-muted">
-            <bdi>{quote.name}</bdi>
-          </div>
-          <div className="mt-2 flex items-center gap-3">
-            <span className="num text-3xl font-bold">{fmtPrice(quote.price, cur)}</span>
-            <ChangeBadge pct={quote.changePercent / 100} />
-          </div>
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="num text-2xl font-extrabold md:text-3xl">{symbol}</h1>
+          <span className="rounded-md bg-surface-2 px-2 py-0.5 text-xs text-muted">{TYPE_LABELS[quote.type]}</span>
+          {quote.exchange && <span className="text-xs text-muted">{quote.exchange}</span>}
+          {demo && <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs text-amber-300">נתוני הדגמה</span>}
         </div>
-        <div className="flex w-full gap-2 sm:w-auto">
-          <WatchButton symbol={symbol} initial={watching} loggedIn={!!user} />
-          {quote.type !== "INDEX" && <AddToPortfolio symbol={symbol} currency={cur} price={quote.price} loggedIn={!!user} />}
+        <div className="truncate text-sm text-muted md:text-lg">
+          <bdi>{quote.name}</bdi>
+        </div>
+        <div className="mt-1 flex items-center gap-3 md:mt-2">
+          <span className="num text-2xl font-bold md:text-3xl">{fmtPrice(quote.price, cur)}</span>
+          <ChangeBadge pct={quote.changePercent / 100} />
         </div>
       </div>
+      <div className="hidden gap-2 md:flex">
+        <WatchButton symbol={symbol} initial={watching} loggedIn={!!user} />
+        {canAddToPortfolio && <AddToPortfolio symbol={symbol} currency={cur} price={quote.price} loggedIn={!!user} />}
+      </div>
+    </div>
+  );
 
-      {demo && (
-        <p className="rounded-xl bg-amber-500/10 px-4 py-2 text-sm text-amber-300">שימו לב: הנתונים בעמוד זה הם נתוני הדגמה.</p>
-      )}
+  const mini = (
+    <div className="flex items-center gap-2">
+      <span className="num font-bold">{symbol}</span>
+      <bdi className="min-w-0 flex-1 truncate text-xs text-muted">{quote.name}</bdi>
+      <span className="num font-semibold">{fmtPrice(quote.price, cur)}</span>
+      <ChangeBadge pct={quote.changePercent / 100} />
+    </div>
+  );
 
-      <PriceChart symbol={symbol} currency={cur} initial={history.data.prices} />
+  const priceChart = <PriceChart symbol={symbol} currency={cur} initial={history.data.prices} />;
+  const tabs: AssetTab[] = [];
 
-      {stock && (
-        <>
-          <Section title="נתונים עיקריים">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              <Stat label="שווי שוק" value={fmtCompact(stock.stats.marketCap, cur)} />
-              <Stat label="מכפיל רווח (P/E)" value={fmtNumber(stock.stats.peRatio)} />
-              <Stat label="מכפיל עתידי" value={fmtNumber(stock.stats.forwardPe)} />
-              <Stat label="רווח למניה (EPS)" value={fmtNumber(stock.stats.eps)} />
-              <Stat label="תשואת דיבידנד" value={fmtPct(stock.stats.dividendYield)} />
-              <Stat label="יחס חלוקה" value={fmtPct(stock.stats.payoutRatio)} />
-              <Stat label="בטא" value={fmtNumber(stock.stats.beta)} />
-              <Stat label="שיא 52 שבועות" value={fmtPrice(stock.stats.fiftyTwoWeekHigh, cur)} />
-              <Stat label="שפל 52 שבועות" value={fmtPrice(stock.stats.fiftyTwoWeekLow, cur)} />
-              <Stat label="שולי רווח נקי" value={fmtPct(stock.stats.profitMargin)} />
-              <Stat label="צמיחה בהכנסות" value={fmtPct(stock.stats.revenueGrowth, 2, true)} />
-              <Stat label="מחזור ממוצע" value={fmtCompact(stock.stats.avgVolume)} />
-            </div>
-          </Section>
-
-          <FinancialsCharts annual={stock.annual} quarterly={stock.quarterly} />
-        </>
-      )}
-
-      {etf && (
-        <>
-          <Section title="נתוני הקרן">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              <Stat label="דמי ניהול" value={fmtPct(etf.expenseRatio)} />
-              <Stat label="תשואת דיבידנד" value={fmtPct(etf.dividendYield)} />
-              <Stat label="נכסים מנוהלים" value={fmtCompact(etf.totalAssets, cur)} />
-              <Stat label="בית השקעות" value={etf.fundFamily ?? "—"} />
-              <Stat label="קטגוריה" value={etf.category ?? "—"} />
-              <Stat label="תאריך הקמה" value={etf.inceptionDate ? fmtDate(etf.inceptionDate) : "—"} />
-            </div>
-          </Section>
-
+  if (stock) {
+    const s = stock.stats;
+    const has52w = s.fiftyTwoWeekLow != null && s.fiftyTwoWeekHigh != null;
+    tabs.push(
+      {
+        id: "overview",
+        label: "סקירה",
+        content: (
+          <>
+            {priceChart}
+            <Section title="נתונים עיקריים">
+              <StatGrid
+                primary={stats(
+                  ["שווי שוק", s.marketCap, fmtCompact(s.marketCap, cur)],
+                  ["מכפיל רווח (P/E)", s.peRatio, fmtNumber(s.peRatio)],
+                  ["תשואת דיבידנד", s.dividendYield, fmtPct(s.dividendYield)],
+                  ["טווח 52 שבועות", has52w || null, `${fmtPrice(s.fiftyTwoWeekLow, cur)} – ${fmtPrice(s.fiftyTwoWeekHigh, cur)}`],
+                )}
+                more={stats(
+                  ["מכפיל עתידי", s.forwardPe, fmtNumber(s.forwardPe)],
+                  ["רווח למניה (EPS)", s.eps, fmtNumber(s.eps)],
+                  ["יחס חלוקה", s.payoutRatio, fmtPct(s.payoutRatio)],
+                  ["בטא", s.beta, fmtNumber(s.beta)],
+                  ["שולי רווח נקי", s.profitMargin, fmtPct(s.profitMargin)],
+                  ["צמיחה בהכנסות", s.revenueGrowth, fmtPct(s.revenueGrowth, 2, true)],
+                  ["מחזור ממוצע", s.avgVolume, fmtCompact(s.avgVolume)],
+                )}
+              />
+            </Section>
+          </>
+        ),
+      },
+      { id: "financials", label: "דוחות", content: <FinancialsCharts annual={stock.annual} quarterly={stock.quarterly} /> },
+    );
+  } else if (etf) {
+    tabs.push(
+      {
+        id: "overview",
+        label: "סקירה",
+        content: (
+          <>
+            {priceChart}
+            <Section title="נתוני הקרן">
+              <StatGrid
+                primary={stats(
+                  ["דמי ניהול", etf.expenseRatio, fmtPct(etf.expenseRatio)],
+                  ["תשואת דיבידנד", etf.dividendYield, fmtPct(etf.dividendYield)],
+                  ["נכסים מנוהלים", etf.totalAssets, fmtCompact(etf.totalAssets, cur)],
+                  ["בית השקעות", etf.fundFamily, etf.fundFamily ?? ""],
+                )}
+                more={stats(
+                  ["קטגוריה", etf.category, etf.category ?? ""],
+                  ["תאריך הקמה", etf.inceptionDate, etf.inceptionDate ? fmtDate(etf.inceptionDate) : ""],
+                )}
+              />
+            </Section>
+            {etf.annualReturns.length > 0 && (
+              <Section title="תשואה שנתית">
+                <div className="card p-4">
+                  <BarSeriesChart
+                    data={etf.annualReturns.map((r) => ({ year: String(r.year), value: r.value }))}
+                    xKey="year"
+                    valueFormat="pct"
+                    signColors
+                    series={[{ key: "value", name: "תשואה", color: SERIES[0] }]}
+                  />
+                </div>
+              </Section>
+            )}
+          </>
+        ),
+      },
+      {
+        id: "holdings",
+        label: "אחזקות",
+        content: (
           <div className="grid gap-6 lg:grid-cols-2">
             <Section title="אחזקות עיקריות">
               {etf.holdings.length ? (
@@ -202,49 +263,47 @@ export default async function AssetPage({ params }: { params: Promise<{ symbol: 
               )}
             </Section>
           </div>
+        ),
+      },
+    );
+  } else {
+    tabs.push({ id: "overview", label: "סקירה", content: priceChart });
+  }
 
-          {etf.annualReturns.length > 0 && (
-            <Section title="תשואה שנתית">
-              <div className="card p-4">
-                <BarSeriesChart
-                  data={etf.annualReturns.map((r) => ({ year: String(r.year), value: r.value }))}
-                  xKey="year"
-                  valueFormat="pct"
-                  signColors
-                  series={[{ key: "value", name: "תשואה", color: SERIES[0] }]}
-                />
-              </div>
-            </Section>
-          )}
-        </>
-      )}
-
-      {divYears.length > 0 && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Section title="תשואת דיבידנד לאורך השנים">
-            <div className="card p-4">
+  if (divYears.length > 0) {
+    tabs.push({
+      id: "dividends",
+      label: "דיבידנדים",
+      content: (
+        <Section title="דיבידנדים">
+          <Carousel>
+            <ChartCard title="תשואת דיבידנד לאורך השנים">
               <BarSeriesChart
                 data={divYears}
                 xKey="year"
                 valueFormat="pct"
                 series={[{ key: "yield", name: "תשואת דיבידנד", color: SERIES[2] }]}
               />
-            </div>
-          </Section>
-          <Section title="דיבידנד למניה (שנתי)">
-            <div className="card p-4">
+            </ChartCard>
+            <ChartCard title="דיבידנד למניה (שנתי)">
               <BarSeriesChart
                 data={divYears}
                 xKey="year"
                 valueFormat="number"
                 series={[{ key: "dividends", name: "דיבידנד למניה", color: SERIES[0] }]}
               />
-            </div>
-          </Section>
-        </div>
-      )}
+            </ChartCard>
+          </Carousel>
+        </Section>
+      ),
+    });
+  }
 
-      {(stock?.profile.description || etf?.description) && (
+  if (stock?.profile.description || etf?.description) {
+    tabs.push({
+      id: "about",
+      label: "אודות",
+      content: (
         <Section title="אודות">
           <div className="card space-y-3 p-4 text-sm leading-relaxed text-muted">
             {stock && (
@@ -266,7 +325,22 @@ export default async function AssetPage({ params }: { params: Promise<{ symbol: 
             <p dir="auto">{stock?.profile.description ?? etf?.description}</p>
           </div>
         </Section>
-      )}
-    </div>
+      ),
+    });
+  }
+
+  return (
+    <>
+      <AssetView hero={hero} mini={mini} tabs={tabs} />
+
+      {/* Mobile: keep the main actions in reach, just above the bottom nav. */}
+      <div className="h-14 md:hidden" />
+      <div className="fixed inset-x-3 bottom-[5.75rem] z-30 flex gap-2 md:hidden">
+        <WatchButton symbol={symbol} initial={watching} loggedIn={!!user} className="flex-1 py-3 shadow-xl" />
+        {canAddToPortfolio && (
+          <AddToPortfolio symbol={symbol} currency={cur} price={quote.price} loggedIn={!!user} className="flex-1 py-3 shadow-xl" />
+        )}
+      </div>
+    </>
   );
 }

@@ -3,16 +3,27 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Star } from "lucide-react";
+import clsx from "clsx";
 import { toggleWatchlist } from "@/app/actions";
 
-export function WatchButton({ symbol, initial, loggedIn }: { symbol: string; initial: boolean; loggedIn: boolean }) {
+export function WatchButton({
+  symbol,
+  initial,
+  loggedIn,
+  className,
+}: {
+  symbol: string;
+  initial: boolean;
+  loggedIn: boolean;
+  className?: string;
+}) {
   const [watching, setWatching] = useState(initial);
   const [pending, start] = useTransition();
   const router = useRouter();
 
   return (
     <button
-      className="btn-ghost"
+      className={clsx("btn-ghost", className)}
       disabled={pending}
       onClick={() => {
         if (!loggedIn) {

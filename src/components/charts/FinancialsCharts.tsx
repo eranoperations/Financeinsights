@@ -5,12 +5,13 @@ import clsx from "clsx";
 import type { FinancialPeriod } from "@/lib/market/types";
 import { BarSeriesChart } from "./BarSeriesChart";
 import { SERIES } from "./palette";
+import { Carousel } from "../Carousel";
 
 type Mode = "annual" | "quarterly";
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="card p-4">
+    <div className="card h-full p-4">
       <h3 className="mb-3 font-semibold">{title}</h3>
       {children}
     </div>
@@ -46,7 +47,7 @@ export function FinancialsCharts({ annual, quarterly }: { annual: FinancialPerio
           ))}
         </div>
       </div>
-      <div className="grid gap-3 lg:grid-cols-2">
+      <Carousel>
         <Panel title="הכנסות מול הוצאות">
           <BarSeriesChart
             data={rows}
@@ -79,7 +80,7 @@ export function FinancialsCharts({ annual, quarterly }: { annual: FinancialPerio
             <BarSeriesChart data={rows} xKey="period" series={[{ key: "freeCashFlow", name: "תזרים חופשי", color: SERIES[0] }]} signColors />
           </Panel>
         )}
-      </div>
+      </Carousel>
     </section>
   );
 }
