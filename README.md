@@ -26,8 +26,15 @@ npm run dev               # http://localhost:3000
 
 ברירת המחדל היא Yahoo Finance דרך הספרייה `yahoo-finance2` (ללא מפתח API). אם המקור לא זמין, האתר עובר אוטומטית
 ל**נתוני הדגמה** סינתטיים ומציג על כך באנר. `MARKET_DATA_PROVIDER=mock` מכריח נתוני הדגמה.
-Yahoo הוא מקור לא רשמי — לסביבת ייצור מסחרית מומלץ ספק בתשלום (למשל Financial Modeling Prep / Polygon / EODHD); מספיק לממש את
-הממשק `MarketDataProvider` ב-`src/lib/market/types.ts`.
+Yahoo הוא מקור לא רשמי ומיועד לשימוש אישי בלבד — לשימוש מסחרי צריך ספק עם רישיון (למשל TASE Data Hub לנתוני הבורסה בת״א, או EODHD / Polygon / Financial Modeling Prep).
+
+### החלפת ספק
+
+1. מממשים את הממשק `MarketDataProvider` (`src/lib/market/types.ts`) בקובץ חדש, למשל `src/lib/market/eodhd.ts`.
+2. רושמים אותו ב-`PROVIDERS` שב-`src/lib/market/providers.ts`.
+3. מגדירים `MARKET_DATA_PROVIDER=<שם הספק>` (שם לא מוכר חוזר ל-Yahoo).
+
+שאר האתר ניגש לנתונים רק דרך `market` ב-`src/lib/market/index.ts`, כך שהמטמון והנפילה לנתוני הדגמה עובדים אוטומטית לכל ספק.
 
 ## מבנה
 

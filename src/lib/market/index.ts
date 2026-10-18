@@ -1,6 +1,5 @@
 import "server-only";
-import { mockProvider } from "./mock";
-import { yahooProvider } from "./yahoo";
+import { mockProvider, resolveProvider } from "./providers";
 import type { HistoryRange, MarketDataProvider } from "./types";
 
 export * from "./types";
@@ -22,7 +21,7 @@ const cache = new Map<string, { expires: number; value: Sourced<unknown> }>();
 const MAX_CACHE_ENTRIES = 500;
 
 function primary(): MarketDataProvider {
-  return process.env.MARKET_DATA_PROVIDER === "mock" ? mockProvider : yahooProvider;
+  return resolveProvider(process.env.MARKET_DATA_PROVIDER);
 }
 
 async function cached<T>(
