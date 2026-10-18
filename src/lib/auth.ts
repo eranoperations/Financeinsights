@@ -7,6 +7,11 @@ import { db } from "@/lib/db";
 const COOKIE = "fh_session";
 const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
+// Without AUTH_SECRET in production no session can be signed, so sign-up and login must stop before touching the DB.
+export function authConfigured() {
+  return Boolean(process.env.AUTH_SECRET) || process.env.NODE_ENV !== "production";
+}
+
 function secret() {
   const s = process.env.AUTH_SECRET;
   if (!s && process.env.NODE_ENV === "production") throw new Error("AUTH_SECRET must be set in production");
