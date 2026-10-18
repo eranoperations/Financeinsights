@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createSession, currentUser, destroySession } from "@/lib/auth";
+import { authConfigured, createSession, currentUser, destroySession } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export interface FormState {
@@ -15,6 +15,14 @@ export interface FormState {
 function safeNext(next: FormDataEntryValue | null): string {
   const s = typeof next === "string" ? next : "";
   return s.startsWith("/") && !s.startsWith("//") ? s : "/portfolio";
+}
+
+const AUTH_UNAVAILABLE: FormState = { error: "ההרשמה וההתחברות אינן זמינות כרגע בגלל תקלת הגדרות בשרת" };
+
+function authUnavailable() {
+  if (authConfigured()) return false;
+  console.error("AUTH_SECRET is not set: sign-up and login are disabled");
+  return true;
 }
 
 const credentials = z.object({
@@ -29,6 +37,7 @@ export async function register(_: FormState, form: FormData): Promise<FormState>
     name: form.get("name") || undefined,
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (authUnavailable()) return AUTH_UNAVAILABLE;
   const { email, password, name } = parsed.data;
   if (await db.user.findUnique({ where: { email } })) return { error: "כבר קיים משתמש עם האימייל הזה" };
   const user = await db.user.create({ data: { email, name, passwordHash: await bcrypt.hash(password, 10) } });
@@ -39,6 +48,7 @@ export async function register(_: FormState, form: FormData): Promise<FormState>
 export async function login(_: FormState, form: FormData): Promise<FormState> {
   const parsed = credentials.safeParse({ email: form.get("email"), password: form.get("password") });
   if (!parsed.success) return { error: "אימייל או סיסמה שגויים" };
+  if (authUnavailable()) return AUTH_UNAVAILABLE;
   const user = await db.user.findUnique({ where: { email: parsed.data.email } });
   if (!user || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
     return { error: "אימייל או סיסמה שגויים" };
